@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  mysql:
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: secret-password
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: int-sbp
+    ports:
+      - 3306:3306
+    volumes:
+      - ./docker.ignore.data/db:/var/lib/mysql
