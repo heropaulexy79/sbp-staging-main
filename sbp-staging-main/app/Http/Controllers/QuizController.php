@@ -27,85 +27,165 @@ class QuizController extends Controller
     /**
      * Generate quizzes for a course.
      */
+    // public function generateQuizzes(Request $request): JsonResponse
+    // {
+    //     try {
+    //         $validator = Validator::make($request->all(), [
+    //             'course_id' => 'required|integer|exists:courses,id',
+    //             'quiz_title' => 'required|string|max:255',
+    //             'quiz_types' => 'required|array|min:1',
+    //             'quiz_types.*' => 'in:MULTIPLE_CHOICE,MULTIPLE_SELECT,TRUE_FALSE,TYPE_ANSWER,PUZZLE',
+    //             'quiz_count' => 'required|integer|min:1|max:50',
+    //             'difficulty' => 'nullable|in:easy,medium,hard',
+    //             'is_published' => 'nullable|boolean',
+    //             'reference_resources' => 'nullable|array',
+    //             'reference_resources.*' => 'uuid|exists:resources,id'
+    //         ]);
+
+    //         if ($validator->fails()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Validation failed',
+    //                 'errors' => $validator->errors()
+    //             ], 422);
+    //         }
+
+    //         // Check if user has access to the course
+    //         $course = Course::findOrFail($request->course_id);
+    //         if (!$this->canAccessCourse($course)) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'You do not have permission to generate quizzes for this course'
+    //             ], 403);
+    //         }
+
+    //         // Create a new quiz lesson first
+    //         $lesson = Lesson::create([
+    //             'course_id' => $request->course_id,
+    //             'title' => $request->quiz_title,
+    //             'slug' => \Illuminate\Support\Str::slug($request->quiz_title),
+    //             'content' => 'AI-generated quiz lesson',
+    //             'type' => 'QUIZ',
+    //             'position' => Lesson::where('course_id', $request->course_id)->max('position') + 1,
+    //             'is_published' => $request->input('is_published', false)
+    //         ]);
+
+    //         $options = [
+    //             'difficulty' => $request->difficulty,
+    //             'reference_resources' => $request->reference_resources ?? []
+    //         ];
+
+    //         $result = $this->quizGeneratorService->generateQuizzesForLesson(
+    //             $lesson->id,
+    //             $request->course_id,
+    //             $request->quiz_types,
+    //             $request->quiz_count,
+    //             $options
+    //         );
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => "Successfully created quiz lesson '{$lesson->title}' with {$result['generated_count']} questions",
+    //             'data' => [
+    //                 'lesson' => $lesson,
+    //                 'quizzes' => $result['quizzes'],
+    //                 'generated_count' => $result['generated_count']
+    //             ]
+    //         ]);
+
+    //     } catch (Exception $e) {
+    //         Log::error('Quiz generation failed in controller', [
+    //             'user_id' => Auth::id(),
+    //             'request_data' => $request->all(),
+    //             'error' => $e->getMessage()
+    //         ]);
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Failed to generate quizzes: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
     public function generateQuizzes(Request $request): JsonResponse
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'course_id' => 'required|integer|exists:courses,id',
-                'quiz_title' => 'required|string|max:255',
-                'quiz_types' => 'required|array|min:1',
-                'quiz_types.*' => 'in:MULTIPLE_CHOICE,MULTIPLE_SELECT,TRUE_FALSE,TYPE_ANSWER,PUZZLE',
-                'quiz_count' => 'required|integer|min:1|max:50',
-                'difficulty' => 'nullable|in:easy,medium,hard',
-                'is_published' => 'nullable|boolean',
-                'reference_resources' => 'nullable|array',
-                'reference_resources.*' => 'uuid|exists:resources,id'
-            ]);
+{
+    try {
+        $validator = Validator::make($request->all(), [
+            'course_id' => 'required|integer|exists:courses,id',
+            'quiz_title' => 'required|string|max:255',
+            'quiz_types' => 'required|array|min:1',
+            'quiz_types.*' => 'in:MULTIPLE_CHOICE,MULTIPLE_SELECT,TRUE_FALSE,TYPE_ANSWER,PUZZLE',
+            'quiz_count' => 'required|integer|min:1|max:50',
+            'difficulty' => 'nullable|in:easy,medium,hard',
+            'is_published' => 'nullable|boolean',
+            'reference_resources' => 'nullable|array',
+            // This line has been changed to remove the 'uuid' validation rule
+            'reference_resources.*' => 'exists:resources,id'
+        ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            // Check if user has access to the course
-            $course = Course::findOrFail($request->course_id);
-            if (!$this->canAccessCourse($course)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You do not have permission to generate quizzes for this course'
-                ], 403);
-            }
-
-            // Create a new quiz lesson first
-            $lesson = Lesson::create([
-                'course_id' => $request->course_id,
-                'title' => $request->quiz_title,
-                'slug' => \Illuminate\Support\Str::slug($request->quiz_title),
-                'content' => 'AI-generated quiz lesson',
-                'type' => 'QUIZ',
-                'position' => Lesson::where('course_id', $request->course_id)->max('position') + 1,
-                'is_published' => $request->input('is_published', false)
-            ]);
-
-            $options = [
-                'difficulty' => $request->difficulty,
-                'reference_resources' => $request->reference_resources ?? []
-            ];
-
-            $result = $this->quizGeneratorService->generateQuizzesForLesson(
-                $lesson->id,
-                $request->course_id,
-                $request->quiz_types,
-                $request->quiz_count,
-                $options
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully created quiz lesson '{$lesson->title}' with {$result['generated_count']} questions",
-                'data' => [
-                    'lesson' => $lesson,
-                    'quizzes' => $result['quizzes'],
-                    'generated_count' => $result['generated_count']
-                ]
-            ]);
-
-        } catch (Exception $e) {
-            Log::error('Quiz generation failed in controller', [
-                'user_id' => Auth::id(),
-                'request_data' => $request->all(),
-                'error' => $e->getMessage()
-            ]);
-
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate quizzes: ' . $e->getMessage()
-            ], 500);
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
         }
+
+        // Check if user has access to the course
+        $course = Course::findOrFail($request->course_id);
+        if (!$this->canAccessCourse($course)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You do not have permission to generate quizzes for this course'
+            ], 403);
+        }
+
+        // Create a new quiz lesson first
+        $lesson = Lesson::create([
+            'course_id' => $request->course_id,
+            'title' => $request->quiz_title,
+            'slug' => \Illuminate\Support\Str::slug($request->quiz_title),
+            'content' => 'AI-generated quiz lesson',
+            'type' => 'QUIZ',
+            'position' => Lesson::where('course_id', $request->course_id)->max('position') + 1,
+            'is_published' => $request->input('is_published', false)
+        ]);
+
+        $options = [
+            'difficulty' => $request->difficulty,
+            'reference_resources' => $request->reference_resources ?? []
+        ];
+
+        $result = $this->quizGeneratorService->generateQuizzesForLesson(
+            $lesson->id,
+            $request->course_id,
+            $request->quiz_types,
+            $request->quiz_count,
+            $options
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully created quiz lesson '{$lesson->title}' with {$result['generated_count']} questions",
+            'data' => [
+                'lesson' => $lesson,
+                'quizzes' => $result['quizzes'],
+                'generated_count' => $result['generated_count']
+            ]
+        ]);
+
+    } catch (Exception $e) {
+        Log::error('Quiz generation failed in controller', [
+            'user_id' => Auth::id(),
+            'request_data' => $request->all(),
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to generate quizzes: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Get available quiz types.

@@ -211,79 +211,165 @@ class ResourceController extends Controller
     /**
      * Store resource as a single record with embedding
      */
+    // private function storeResource(string $text, string $title, ?int $courseId, $file = null): array
+    // {
+    //     try {
+    //         // Validate text content
+    //         if (empty(trim($text))) {
+    //             throw new \Exception('Text content is empty after processing');
+    //         }
+
+    //         // Ensure text is valid UTF-8 and clean
+    //         $text = $this->normalizeText($text);
+            
+    //         if (empty(trim($text))) {
+    //             throw new \Exception('Text content is empty after normalization');
+    //         }
+
+    //         // Test if the text can be JSON encoded
+    //         $testJson = json_encode($text);
+    //         if ($testJson === false) {
+    //             throw new \Exception('Text contains invalid characters that cannot be JSON encoded');
+    //         }
+
+    //         // Generate embedding for the entire document
+    //         $embedding = $this->ragService->generateEmbedding($text);
+            
+    //         // Prepare metadata
+    //         $metadata = [
+    //             'content_size' => strlen($text),
+    //             'source_type' => $file ? $file->getClientOriginalExtension() : 'text',
+    //             'original_filename' => $file ? $file->getClientOriginalName() : null,
+    //             'uploaded_at' => now()->toISOString(),
+    //         ];
+
+    //         // Test if metadata can be JSON encoded
+    //         $testMetadataJson = json_encode($metadata);
+    //         if ($testMetadataJson === false) {
+    //             throw new \Exception('Metadata contains invalid characters that cannot be JSON encoded');
+    //         }
+
+    //         // Create single resource record
+    //         $resource = Resource::create([
+    //             'course_id' => $courseId,
+    //             'title' => $title,
+    //             'content' => $text,
+    //             'embedding' => $embedding,
+    //             'metadata' => $metadata
+    //         ]);
+
+    //         Log::info('Resource stored successfully', [
+    //             'resource_id' => $resource->id,
+    //             'title' => $title,
+    //             'content_length' => strlen($text)
+    //         ]);
+
+    //         return [
+    //             'total_chunks' => 1,
+    //             'resources' => [
+    //                 [
+    //                     'id' => $resource->id,
+    //                     'title' => $resource->title,
+    //                     'content_length' => strlen($text)
+    //                 ]
+    //             ]
+    //         ];
+
+    //     } catch (\Exception $e) {
+    //         Log::error('Failed to store resource', [
+    //             'title' => $title,
+    //             'content_length' => strlen($text ?? ''),
+    //             'error' => $e->getMessage()
+    //         ]);
+    //         throw $e;
+    //     }
+    // }
+
     private function storeResource(string $text, string $title, ?int $courseId, $file = null): array
-    {
-        try {
-            // Validate text content
-            if (empty(trim($text))) {
-                throw new \Exception('Text content is empty after processing');
-            }
+{
+    try {
+        // Validate text content
+        if (empty(trim($text))) {
+            throw new \Exception('Text content is empty after processing');
+        }
 
-            // Ensure text is valid UTF-8 and clean
-            $text = $this->normalizeText($text);
-            
-            if (empty(trim($text))) {
-                throw new \Exception('Text content is empty after normalization');
-            }
+        // Ensure text is valid UTF-8 and clean
+        $text = $this->normalizeText($text);
 
-            // Test if the text can be JSON encoded
-            $testJson = json_encode($text);
-            if ($testJson === false) {
-                throw new \Exception('Text contains invalid characters that cannot be JSON encoded');
-            }
+        if (empty(trim($text))) {
+            throw new \Exception('Text content is empty after normalization');
+        }
 
-            // Generate embedding for the entire document
-            $embedding = $this->ragService->generateEmbedding($text);
-            
+        // Test if the text can be JSON encoded
+        $testJson = json_encode($text);
+        if ($testJson === false) {
+            throw new \Exception('Text contains invalid characters that cannot be JSON encoded');
+        }
+
+        // Chunk the text to avoid payload size limits
+        $chunks = $this->chunkText($text);
+        $storedResources = [];
+
+        foreach ($chunks as $index => $chunk) {
+            // Generate embedding for the chunk
+            $embedding = $this->ragService->generateEmbedding($chunk);
+
             // Prepare metadata
             $metadata = [
-                'content_size' => strlen($text),
+                'content_size' => strlen($chunk),
                 'source_type' => $file ? $file->getClientOriginalExtension() : 'text',
                 'original_filename' => $file ? $file->getClientOriginalName() : null,
                 'uploaded_at' => now()->toISOString(),
+                'chunk_index' => $index + 1,
+                'total_chunks' => count($chunks),
             ];
 
-            // Test if metadata can be JSON encoded
-            $testMetadataJson = json_encode($metadata);
-            if ($testMetadataJson === false) {
-                throw new \Exception('Metadata contains invalid characters that cannot be JSON encoded');
-            }
-
-            // Create single resource record
+            // Create a resource record for each chunk
             $resource = Resource::create([
                 'course_id' => $courseId,
-                'title' => $title,
-                'content' => $text,
+                'title' => count($chunks) > 1 ? "{$title} (Part " . ($index + 1) . ")" : $title,
+                'content' => $chunk,
                 'embedding' => $embedding,
                 'metadata' => $metadata
             ]);
 
-            Log::info('Resource stored successfully', [
-                'resource_id' => $resource->id,
-                'title' => $title,
-                'content_length' => strlen($text)
-            ]);
-
-            return [
-                'total_chunks' => 1,
-                'resources' => [
-                    [
-                        'id' => $resource->id,
-                        'title' => $resource->title,
-                        'content_length' => strlen($text)
-                    ]
-                ]
+            $storedResources[] = [
+                'id' => $resource->id,
+                'title' => $resource->title,
+                'content_length' => strlen($chunk)
             ];
 
-        } catch (\Exception $e) {
-            Log::error('Failed to store resource', [
-                'title' => $title,
-                'content_length' => strlen($text ?? ''),
-                'error' => $e->getMessage()
+            Log::info('Resource chunk stored successfully', [
+                'resource_id' => $resource->id,
+                'title' => $resource->title,
+                'content_length' => strlen($chunk)
             ]);
-            throw $e;
         }
+
+        return [
+            'total_chunks' => count($chunks),
+            'resources' => $storedResources
+        ];
+
+    } catch (\Exception $e) {
+        Log::error('Failed to store resource', [
+            'title' => $title,
+            'content_length' => strlen($text ?? ''),
+            'error' => $e->getMessage()
+        ]);
+        throw $e;
     }
+}
+
+private function chunkText(string $text, int $chunkSize = 30000): array
+{
+    $chunks = [];
+    $length = strlen($text);
+    for ($i = 0; $i < $length; $i += $chunkSize) {
+        $chunks[] = substr($text, $i, $chunkSize);
+    }
+    return $chunks;
+}
 
 
     /**

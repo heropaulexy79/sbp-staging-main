@@ -12,6 +12,16 @@ class HybridRagService
     private string $geminiApiKey;
     private string $geminiModel;
 
+    private function chunkText(string $text, int $chunkSize = 30000): array
+{
+    $chunks = [];
+    $length = strlen($text);
+    for ($i = 0; $i < $length; $i += $chunkSize) {
+        $chunks[] = substr($text, $i, $chunkSize);
+    }
+    return $chunks;
+}
+
     public function __construct()
     {
         $this->geminiApiKey = config('services.gemini.api_key');
