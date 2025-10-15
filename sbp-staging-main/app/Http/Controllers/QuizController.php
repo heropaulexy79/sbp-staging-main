@@ -110,17 +110,16 @@ class QuizController extends Controller
 {
     try {
         $validator = Validator::make($request->all(), [
-            'course_id' => 'required|integer|exists:courses,id',
-            'quiz_title' => 'required|string|max:255',
-            'quiz_types' => 'required|array|min:1',
-            'quiz_types.*' => 'in:MULTIPLE_CHOICE,MULTIPLE_SELECT,TRUE_FALSE,TYPE_ANSWER,PUZZLE',
-            'quiz_count' => 'required|integer|min:1|max:50',
-            'difficulty' => 'nullable|in:easy,medium,hard',
-            'is_published' => 'nullable|boolean',
-            'reference_resources' => 'nullable|array',
-            // This line has been changed to remove the 'uuid' validation rule
-            'reference_resources.*' => 'exists:resources,id'
-        ]);
+    'course_id' => 'required|integer|exists:courses,id',
+    'quiz_title' => 'required|string|max:255',
+    'quiz_types' => 'required|array|min:1',
+    'quiz_types.*' => 'in:MULTIPLE_CHOICE,MULTIPLE_SELECT,TRUE_FALSE,TYPE_ANSWER,PUZZLE',
+    'quiz_count' => 'required|integer|min:1|max:50',
+    'difficulty' => 'nullable|in:easy,medium,hard',
+    'is_published' => 'nullable|boolean',
+    'reference_resources' => 'nullable|array',
+    'reference_resources.*' => 'uuid|exists:resources,id'
+]);
 
         if ($validator->fails()) {
             return response()->json([
