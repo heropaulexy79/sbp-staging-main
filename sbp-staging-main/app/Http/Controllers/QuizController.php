@@ -109,7 +109,9 @@ class QuizController extends Controller
     public function generateQuizzes(Request $request): JsonResponse
 {
     try {
-        $validator = Validator::make($request->all(), [
+        // In app/Http/Controllers/QuizController.php inside the generateQuizzes method...
+
+$validator = Validator::make($request->all(), [
     'course_id' => 'required|integer|exists:courses,id',
     'quiz_title' => 'required|string|max:255',
     'quiz_types' => 'required|array|min:1',
@@ -118,7 +120,7 @@ class QuizController extends Controller
     'difficulty' => 'nullable|in:easy,medium,hard',
     'is_published' => 'nullable|boolean',
     'reference_resources' => 'nullable|array',
-    'reference_resources.*' => 'uuid|exists:resources,id'
+    'reference_resources.*' => 'string|exists:resources,id' // This is the only line you need to change
 ]);
 
         if ($validator->fails()) {
